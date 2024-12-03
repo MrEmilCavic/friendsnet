@@ -15,3 +15,4 @@ To start off just React & TailwindCSS, communicating with the FriendsNetWebAPI.
 - Next up: Profile & Event component
 - Dashboard component
 - Search function & Friends management component
+- UI/UX once the basic functionalities are all implemented
