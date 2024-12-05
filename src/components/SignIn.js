@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
+import { useAuth } from './AuthContext';
 import axios from 'axios';
+import { jwtDecode } from 'jwt-decode';
 
 function SignIn () {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [signedIgn ,setSignedIn] = useState(false);
     const [signUpData, setSignUpData] = useState({
         userIdentification:'',
         secret:'',
@@ -14,7 +13,14 @@ function SignIn () {
         userIdentification: '',
         secret: ''
     });
-    const [token, setToken] = useState('');
+    const { login } = useAuth();
+    const { logout } = useAuth();
+    const [ userProfile, setUserProfile ] = useState({
+        firstName: '',
+        lastName: '',
+        avatar: ''
+    })
+
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [signUpSuccess, setSignUpSuccess] = useState(false);
@@ -49,9 +55,7 @@ function SignIn () {
 
         setLoading(true);
         try {
-            console.log('sending to post:', signUpData);
             const response = await axios.post('https://localhost:7117/api/NewUser/register', signUpData);
-            console.log('API response: ', response.data);
             if (response.status === 200) {
                 alert('Sign-up successful, welcome to the community!');
                 setLoading(false);
@@ -63,11 +67,43 @@ function SignIn () {
                     confirmPassword: ''
                 })
             };
-
         } catch (error) {
             console.error('Error signing up: ', error);
             setError('Aiaiai! Something went wrong during signing up. Please contact us!');
             setLoading(false);
+        }
+    };
+
+    const getUserProfile = async (token) => {
+        try {
+            const decodeToken = jwtDecode(token);
+            const userId = decodeToken.unique_name;
+            const response = await axios.get(`https://localhost:7117/api/Profiles/${userId}`);
+            console.log('reponse from profile get is ', response);
+            if (response.status === 200) {
+                    const data = response.data;
+                    console.log('yes, we got profile!', data);
+                    const fallbackSnegle = [
+                        'https://res.cloudinary.com/science-portfolio/image/upload/v1733402754/friendsnet/profilepics/kanelsnegl_best_vintage_oezf9u.jpg',
+                        'https://res.cloudinary.com/science-portfolio/image/upload/v1733397619/friendsnet/profilepics/kanelsnelg_noveau_v4iwqm.jpg',
+                        'https://res.cloudinary.com/science-portfolio/image/upload/v1733397619/friendsnet/profilepics/kanelsnegl_vintage_wicgy0.jpg',
+                        'https://res.cloudinary.com/science-portfolio/image/upload/v1733397619/friendsnet/profilepics/kanelsnegl_popart_h3soqs.jpg',
+                        'https://res.cloudinary.com/science-portfolio/image/upload/v1733397619/friendsnet/profilepics/kanelsnegl_bew_comic_bpsdj5.jpg',
+                        'https://res.cloudinary.com/science-portfolio/image/upload/v1733397618/friendsnet/profilepics/kanelsnegl_bew_vintage_fcfjr0.jpg',
+                        'https://res.cloudinary.com/science-portfolio/image/upload/v1733397618/friendsnet/profilepics/kanelsnegl_comic_otxu6c.jpg'
+                    ];
+                    const avatar = data.profileImg && data.profileImg.trim() 
+                        ? data.profileImg
+                        : fallbackSnegle[Math.floor(Math.random()*fallbackSnegle.length)];
+                    setUserProfile ({
+                        firstName: data.firstName,
+                        lastName: data.lastName,
+                        avatar: avatar
+                    });
+            }
+        } catch(err) {
+            console.error('Oh no! Did the token explode?', err);
+            return;
         }
     };
 
@@ -85,32 +121,38 @@ function SignIn () {
             console.log(error);
             return;
         }
-
         setLoading(true);
         try {
             const response = await axios.post('https://localhost:7117/api/Auth/signin', signInData);
-            setToken(response.data.token);
-            localStorage.setItem('token', response.data.token);
-            setSignUpData({
-                userIdentification: '',
-                secret: ''
-            });
-            alert('Sign-in successful, welcome back!');
-            setError('');
+            if (response.status === 200) {
+                const data = response.data;
+                const token = data.token;
+                login(token);
+                setSignUpData({
+                    userIdentification: '',
+                    secret: ''
+                });
+                alert('Sign-in successful, welcome back!');
+                setSignUpSuccess(true);
+                getUserProfile(token);
+                setError('');
+                } else {
+                    setError('Sign in unsuccesful, try using your correct email and password (:');
+                };
             }
             catch (error) {
             console.error('Error signing in: ', error);
             setError('This is strange... Something went wrong signing you in');
             setLoading(false);
         }
-
     }
 
     return (
         <div>
+        { !signUpSuccess || !userProfile.firstName &&
             <section id="signUp">
             <h2>Sign Up</h2>
-            {error && <p>Error: {error}</p>}
+            {error && <p className="text-red-600">Error: {error}</p>}
             <form onSubmit={handleSignUp}>
                 <div>
                     <label htmlFor="email"> e-mail: </label>
@@ -123,9 +165,11 @@ function SignIn () {
                 <button type="submit">Sign me up!</button>
             </form>
             </section>
+        }
+        { !userProfile.firstName &&
             <section id="signIn">
                 <h2>Hello again :)</h2>
-                {error && <p>Error: {error}</p>}
+                {error && <p className="text-red-600">Error: {error}</p>}
                 <form onSubmit={handleSignIn}>
                     <div>
                         <label htmlFor="email"> e-mail: </label>
@@ -136,6 +180,14 @@ function SignIn () {
                     <button type="submit">Sign me in!</button>
                 </form>
             </section>
+        }
+        { userProfile.firstName &&
+            <section id="signedIn" className="flex flex-row-reverse items-center px-4">
+                Welcome back {userProfile.firstName} {userProfile.lastName}! <img src={userProfile.avatar} className="w-20 h-auto rounded-full" />
+                <p onClick={logout} className="cursor-pointer"> Goodbye!</p>
+            </section>
+
+        }
         </div>
     )
 }
