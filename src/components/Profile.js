@@ -1,56 +1,55 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useAuth } from './AuthContext';
 import axios from 'axios';
 
 function Profile() {
-    const [profile, setProfile] = useState([]);
+    const { userId } = useParams();
+    const { userProfile } = useAuth();
+    const [profile, setProfile] = useState({});
     const [interests, setInterests] = useState([]);
+    const hideProfileStuff = ['userID', 'avatar', 'profileImg', 'interestprofile'];
 
-    useEffect(() => {
-        axios.get('https://localhost:7117/api/profiles/${id}')
-        .then((res) => {
-            setProfile(res.data);
-        })
-        .catch((err) => {
-            console.error('API Error fetching profile', err);
-        });
-    }, [id]);
-
-    useEffect(() => {
-        axios.get('https://localhost:7117/api/interests')
-        .then((res) => {
-            setInterests(res.data);
-        })
-        .catch((err) => {
-            console.error('API Error fetching interests', err);
-        });
-    }, [id]);
-
+    useEffect (() => {
+        setProfile(userProfile);
+    }, []);
+    const handleChange = (e, setData) => {
+        const { name, value } = e.target;
+        setData(prevData => ({
+            ...prevData,
+            [name] : value
+        }));
+    };
+    const saveProfile = () => {
+        return profile;
+    }
 
     return (
         <div>
-            <div id="profileInfo">
-                <p className="text-3xl">Hello {profile.FirstName}!</p>
-                <img src={profile.profileimg} />
-                <p> First name </p>
-
-                    Last name
-
-                    Sex
-                    
-                    Birthday
-
-                    E-Mail
-
-                    Phone
-
-                    Town
-
-                    ZIP Code
-
-                    Interests:
-
-                    Description
+            <div id="profileInfo" className="flex items-center justify-center flex-col">
+                <p className="text-3xl">Edit your profile here, {userProfile.firstName} {userProfile.lastName}!</p>
+                <img src={userProfile.avatar} className="w-56 h-auto rounded-full" />
+                <form id="profileData" className="" onSubmit={saveProfile}>
+                    { Object.keys(userProfile).map((key) => {
+                        if(!hideProfileStuff.includes(key)) {
+                            return(
+                            <div key={key}>
+                                <label htmlFor={key}>{key}</label>
+                                <input 
+                                    type={key ==='email' ? 'email' : 'text'}
+                                    id={key}
+                                    name={key}
+                                    value={profile[key] || ''}
+                                    onChange={(e) => handleChange(e, setProfile)}
+                                    className="input-field"
+                                    />
+                            </div>
+                            );
+                    }
+                    return null;
+                })}
+                <button type="submit">Save</button>
+                </form>
             </div>
             <div id="interests">
                 {/*
