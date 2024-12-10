@@ -10,6 +10,7 @@ To start off just React & TailwindCSS, communicating with the FriendsNetWebAPI.
 ## Implemented so far
 
 - The sign up and sign in components
+- Added refresh token logic to handle timed out tokens
 
 ## Currently working on
 

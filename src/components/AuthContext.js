@@ -1,3 +1,7 @@
+/* 
+        Important: change token storage to HttpOnly cookie storage
+*/
+
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
@@ -8,6 +12,53 @@ export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(localStorage.getItem('token') || null);
     const [authenticated, setAuthenticated] = useState(false);
     const [userProfile, setUserProfile] = useState({});
+
+    useEffect(() => {
+        const interceptor = axios.interceptors.response.use(
+            response => response,
+            async error => {
+                if (error.resposnse && error.response.status === 401) {
+                    logout();
+                }
+                return Promise.reject(error);
+            }
+        );
+        return () => {
+            axios.interceptors.response.eject(interceptor);
+        }
+    }, []);
+
+    const tokenExpiry = (token, bufferTime = 300) => {
+        if (!token) return true;
+        try {
+            const decodeToken = jwtDecode(token);
+            const currently = Math.floor(Date.now()/1000);
+            const expiry = decodeToken.exp;
+            console.log(`currently is ${currently}, expiry is ${expiry} and I return ${expiry-currently < bufferTime}`);
+            return expiry-currently < bufferTime;
+        } catch (err) {
+            console.err('Error checking token expiry time', err);
+            return true;
+        }
+    };
+
+    const refreshToken = async (token) => {
+            try {
+                const response = await axios.post('https://localhost:7117/api/refresh-token', { refreshToken });
+                if (response.status === 200) {
+                    const { newAccessToken } = response.data;
+                    localStorage.setItem('token', newAccessToken);
+                    setToken(newAccessToken);
+                    return newAccessToken;
+                } else {
+                    console.error('Failed to refresh token');
+                    return null;
+                }
+            } catch (err) {
+                console.error('Token not-so-fresh:', err);
+                return null;
+            }
+    };
 
     useEffect(() => {
         const storedToken = localStorage.getItem('token');
@@ -23,6 +74,7 @@ export const AuthProvider = ({ children }) => {
     const login = (newToken) => {
         setToken(newToken);
         localStorage.setItem('token', newToken);
+        setAuthenticated(true);
     };
 
     const logout = () => {
@@ -69,7 +121,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ authenticated, token, login, logout, userProfile }}>
+        <AuthContext.Provider value={{ authenticated, token, login, logout, userProfile, tokenExpiry, refreshToken, updateUserProfile }}>
             {children}
         </AuthContext.Provider>
     );
